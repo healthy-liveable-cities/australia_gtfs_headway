@@ -21,10 +21,10 @@ library('sf')
 # library('ggplot2')
 
 gtfs_feeds <- c(
-  './custom_gtfs_vic_ptv/gtfs_au_vic_ptv_20191004.zip'
+  'D:/ntnl_li_2018_template/data/destinations/gtfs_au_ntnl_20191008_20191205/custom_gtfs_vic_ptv/gtfs_au_vic_ptv_20191004.zip'
 )
 
-gpkg_out <- '2020-01-07_tidy_transit_headway.gpkg'
+gpkg_out <- 'D:/ntnl_li_2018_template/data/destinations/gtfs_au_ntnl_20191008_20191205/2020-01-07_tidy_transit_headway.gpkg'
 
 
 for (feed in gtfs_feeds) {
@@ -38,7 +38,7 @@ for (feed in gtfs_feeds) {
   #  >> get stop_id from stop_times joined to trips (trip_id) joined to routes (route_id) to get route_mode
   #  >> disaggregate frequent stops by stop_id group lists using route_type, according to modes
   
-  daytime_freq <- get_stop_frequency(gtfs, start_hour = 7, engtfsd_hour = 19,by_route = FALSE)
+  daytime_freq <- get_stop_frequency(gtfs, start_hour = 7, end_hour = 19,by_route = FALSE)
   # Note that date filtering is not currently working
   # services_in_range <- gtfs$.$date_service_table  %>% 
   #   filter(date >= "2019-10-08" & date <= "2019-12-05" )   %>% 
