@@ -21,10 +21,10 @@ library('sf')
 # library('ggplot2')
 
 gtfs_feeds <- c(
-  'D:/ntnl_li_2018_template/data/destinations/gtfs_au_ntnl_20191008_20191205/custom_gtfs_vic_ptv/gtfs_au_vic_ptv_20191004.zip'
+  './custom_gtfs_vic_ptv/gtfs_au_vic_ptv_20191004.zip'
 )
 
-gpkg_out <- 'D:/ntnl_li_2018_template/data/destinations/gtfs_au_ntnl_20191008_20191205/2020-01-07_tidy_transit_headway.gpkg'
+gpkg_out <- '2020-01-07_tidy_transit_headway.gpkg'
 
 
 for (feed in gtfs_feeds) {
