@@ -1,4 +1,4 @@
-# Carl Higgs 20200106
+# Carl Higgs, Alan Both 20200106
 #  Following http://tidytransit.r-transit.org/articles/servicepatterns.html
 # in order to de-bug Adelaide metro GTFS analysis (suprising result for Oct 2019)
 # using
@@ -75,6 +75,8 @@ gtfs$calendar%>% filter(service_id%in%(test2%>%filter(stop_id==17320)%>%pull(ser
 
 # To restrict to valid days
 
+
+
 valid_days <- c('Monday','Tuesday','Wednesday','Thursday','Friday')
 valid_service_ids <- gtfs$.$date_service_table %>% 
   mutate(dow = weekdays(date)) %>% 
@@ -82,26 +84,65 @@ valid_service_ids <- gtfs$.$date_service_table %>%
   pull(service_id)
 
 # To restrict to modes on a valid day (example of tram)
-tram_services <- gtfs$trips%>%
+modes <- tribble(
+  ~mode  ,~variable   , ~ids,
+  "tram" , "agency_id",  c(1,2),
+  "train", "agency_id",  c(1,2),
+  "bus"  , "agency_id",  c(1,2),
+  "ferry", "agency_id",  c(1,2)
+)
+modes <- 
+for (m in modes%>%pull(mode)) {
+  definition <- modes%>% filter(mode==m)%>%pull(ids)
+  print(definition)
+}
+
+test <- mode_dictionary %>% filter(mode=='tram') %>% pull(ids)
+test[[1]]
+mode_list 
+mode_services <- gtfs$trips%>%
   left_join(gtfs$routes,by='route_id')%>%
-  filter(route_type==3)%>%
+  filter(agency_id%in%c(3)&route_type%in%c(0))%>%  ###### <<< this is what we need to parameterise!!!!
   select(service_id)%>%
   unique() %>% 
   filter(service_id%in%valid_service_ids) %>%
   pull(service_id)
 
-daytime_freq <- get_stop_frequency(gtfs, start_hour = 7, end_hour = 19,service_ids = tram_services,by_route = FALSE)
+daytime_freq <- get_stop_frequency(gtfs, start_hour = 7, end_hour = 19,service_ids = mode_services,by_route = FALSE)
+# get service days of week
+service_dow <- gtfs$calendar%>% filter(service_id%in%(daytime_freq%>%pull(service_id)))
+# join service days of week to frequency table
+daytime_freq <- daytime_freq %>% left_join(service_dow%>%select(service_id,tolower(valid_days)),by='service_id')
+
+daytime_freq <- daytime_freq %>%
+  mutate(monday   =ifelse(monday   ==0,NA,headway*monday),
+         tuesday  =ifelse(tuesday  ==0,NA,headway*tuesday),
+         wednesday=ifelse(wednesday==0,NA,headway*wednesday),
+         thursday =ifelse(thursday ==0,NA,headway*thursday),
+         friday   =ifelse(friday   ==0,NA,headway*friday)) %>% 
+  group_by(stop_id) %>% 
+  summarise(monday=min(monday,na.rm=TRUE),
+            tuesday=min(tuesday,na.rm=TRUE),
+            wednesday=min(wednesday,na.rm=TRUE),
+            thursday=min(thursday,na.rm=TRUE),
+            friday=min(friday,na.rm=TRUE))
+daytime_freq <- daytime_freq %>% 
+  mutate(freq = rowMeans(.[,grep("monday", colnames(daytime_freq)):grep("friday", colnames(daytime_freq))])) %>%
+  select(stop_id,freq)
+
+
 # create spatial features for all stops
-stops_sf <- stops_as_sf(gtfs$stops)
+stops_sf <- stops_as_sf(gtfs$stops %>% filter(stop_id %in% (daytime_freq %>% pull(stop_id))))
 # identify frequent stops
 daytime_frequent_stops_sf <- stops_sf %>% right_join(daytime_freq, by="stop_id") 
-# find minimum service headway for each stop
-unique_stop_headway = aggregate(headway ~ stop_id, data = daytime_frequent_stops_sf, min,na.rm=TRUE) %>% 
-  left_join(stops_sf[,c('stop_id','geometry')], by="stop_id")
-frequent_stops <- unique_stop_headway %>% filter(headway <= 30)
-st_write(unique_stop_headway, dsn=gpkg_out, layer=paste0('all_',stub), layer_options = "OVERWRITE=YES" )
+frequent_stops <- daytime_frequent_stops_sf %>% filter(freq <= 30)
+st_write(daytime_frequent_stops_sf, dsn=gpkg_out, layer=paste0('all_',stub), layer_options = "OVERWRITE=YES" )
 st_write(frequent_stops, dsn=gpkg_out, layer=paste0('frequent_',stub), layer_options = "OVERWRITE=YES" )
 
+
+
+
+summarise(avg_frequency = sum(tmp)/sum(wgt))
 
 # Also note that the choice to select the minimum headway of the services is naive,
 # More appropriate is
