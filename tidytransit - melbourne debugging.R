@@ -61,6 +61,10 @@ for (feed in gtfs_feeds) {
 # Checking out Albion St / Sydney Rd stop (trams missing in melbourne wtf)
 gtfs$stop_times%>%filter(stop_id==17320)%>%select(trip_id)
 gtfs$trips%>%filter(trip_id=='2680.T0.3-19-mjp-1.1.H')
-service_id ='3-19-mjp-1.1.H'
+service_id ='3_T0+a5'
+daytime_freq%>%filter(service_id=='3_T0+a5')
+test <- get_stop_frequency(gtfs, start_hour = 7, end_hour = 19,service_ids=c(service_id),by_route = FALSE)
 
+
+# Note that date filtering is not currently working
 # this is where I was at when we stepped out for meeting
