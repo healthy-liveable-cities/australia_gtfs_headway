@@ -223,6 +223,6 @@ for (feed in gtfs_feeds) {
   }  
 }
 
-st_write(all_stops_current, dsn=gpkg_out, layer="all_stops_nsw_bus_test2",  layer_options = "OVERWRITE=YES" )
-st_write(frequent_stops_current, dsn=gpkg_out, layer="frequent_stops_nsw_bus_test2",  layer_options = "OVERWRITE=YES" )
+st_write(all_stops, dsn=gpkg_out, layer="all_stops",  layer_options = "OVERWRITE=YES" )
+st_write(frequent_stops, dsn=gpkg_out, layer="frequent_stops",  layer_options = "OVERWRITE=YES" )
 
