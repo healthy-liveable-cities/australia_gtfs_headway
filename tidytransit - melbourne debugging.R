@@ -26,11 +26,11 @@ gtfs_feeds <- list.files(recursive=TRUE, pattern="*.zip")
 # )
 
 # gpkg_out <- 'D:/ntnl_li_2018_template/data/destinations/gtfs_au_ntnl_20191008_20191205/2020-01-07_tidy_transit_headway.gpkg'
-gpkg_out <- '2020-01-07_tidy_transit_headway.gpkg'
+gpkg_out <- '2020-01-09_tidy_transit_headway.gpkg'
 
 all_stops <- NULL
 frequent_stops <- NULL
-
+# feed = gtfs_feeds[2]
 for (feed in gtfs_feeds) {
   # feed=gtfs_feeds[2]
   gtfs <- read_gtfs(feed)
@@ -40,19 +40,20 @@ for (feed in gtfs_feeds) {
   fileInfo = strsplit(stub,"_")[[1]]
   currentState = fileInfo[3]
   authority = fileInfo[4]
-  publicationDate = as.numeric(fileInfo[5])
-  
+  publicationDate = as.numeric(fileInfo[length(fileInfo)])
 
   valid_days <- c('Monday','Tuesday','Wednesday','Thursday','Friday')
-  valid_service_ids <- gtfs$.$date_service_table %>% 
+  valid_services <- gtfs$.$date_service_table %>% 
     mutate(dow = weekdays(date)) %>% 
     filter(dow %in% valid_days) %>%
-    filter(date >= "2019-08-10" & date <= "2019-12-05" ) %>%    ### NEW ADDITION
-    pull(service_id)
+    filter(date >= "2019-08-10" & date <= "2019-12-05" )
+  
+  valid_service_ids <- valid_services  %>% pull(service_id)
+  # valid_service_dates <- valid_services  %>% pull(date)
   
   # Mode table storing differences in GTFS feeds
   modes <- tribble(
-    ~state  , ~mode  , ~agencyId, ~routeTypes   ,
+    ~state  , ~mode  , ~agencyId, ~routeTypes  ,
     "vic"  , "tram" ,  c(3)    , c(0)          ,
     "vic"  , "train",  c(1,2)  , c(1,2)        ,
     "vic"  , "bus"  ,  c(4,6)  , c(3)          ,
@@ -60,7 +61,7 @@ for (feed in gtfs_feeds) {
     "nsw"  , "train",  NA      , c(2,401)      ,
     "nsw"  , "bus"  ,  NA      , c(700,712,714),
     "nsw"  , "ferry",  NA      , c(4)          ,
-    "taz"  , "bus"  ,  NA      , c(3)          ,
+    "tas"  , "bus"  ,  NA      , c(3)          ,
     "other", "tram" ,  NA      , c(0)          ,
     "other", "train",  NA      , c(1,2)        ,
     "other", "bus"  ,  NA      , c(3)          ,
@@ -103,26 +104,14 @@ for (feed in gtfs_feeds) {
     
     
     daytime_freq <- get_stop_frequency(gtfs, start_hour = 7, end_hour = 19,service_ids = mode_services2,by_route = FALSE)
-    # get service days of week
-    service_dow <- gtfs$calendar%>% filter(service_id%in%(daytime_freq%>%pull(service_id))) ## this braks for TAZ!
-    # join service days of week to frequency table
-    daytime_freq <- daytime_freq %>% left_join(service_dow%>%select(service_id,tolower(valid_days)),by='service_id')
     
-    daytime_freq <- daytime_freq %>%
-      mutate(monday   =ifelse(monday   ==0,NA,headway*monday),
-             tuesday  =ifelse(tuesday  ==0,NA,headway*tuesday),
-             wednesday=ifelse(wednesday==0,NA,headway*wednesday),
-             thursday =ifelse(thursday ==0,NA,headway*thursday),
-             friday   =ifelse(friday   ==0,NA,headway*friday)) %>% 
-      group_by(stop_id) %>% 
-      summarise(monday=min(monday,na.rm=TRUE),
-                tuesday=min(tuesday,na.rm=TRUE),
-                wednesday=min(wednesday,na.rm=TRUE),
-                thursday=min(thursday,na.rm=TRUE),
-                friday=min(friday,na.rm=TRUE))
+    # skip to next mode if there are no records for this mode (e.g. no ferries in Tasmania)
+    if (nrow(daytime_freq)==0) next
+    # weight service headways for each stop by the number of days on which they are valid for that stop
     daytime_freq <- daytime_freq %>% 
-      mutate(freq = rowMeans(.[,grep("monday", colnames(daytime_freq)):grep("friday", colnames(daytime_freq))])) %>%
-      select(stop_id,freq)
+      left_join(valid_services %>% count(service_id),by='service_id') %>%
+      group_by(stop_id) %>% 
+      summarise(frequency=weighted.mean(headway,n))
     
     
     # create spatial features for all stops
@@ -132,11 +121,13 @@ for (feed in gtfs_feeds) {
              publication_date=publicationDate,
              mode=transitMode)
     # identify frequent stops
-    all_stops_current <- stops_sf %>% right_join(daytime_freq, by="stop_id") 
-    frequent_stops_current <- all_stops_current %>% filter(freq <= 30)
+    all_stops_current <- stops_sf %>% 
+      right_join(daytime_freq, by="stop_id") %>% 
+      select(c(stop_id,mode,state,authority,publication_date,frequency,geometry))
+    frequent_stops_current <- all_stops_current %>% filter(frequency <= 30)
     all_stops <- rbind(all_stops, all_stops_current)
     frequent_stops <- rbind(frequent_stops, frequent_stops_current)
-    print(paste0(currentState," ",transitMode," complete in ", (Sys.time()-startTime), " seconds"))
+    print(paste0(currentState," (",authority,") ",transitMode," complete in ", (Sys.time()-startTime), " seconds"))
   }  
 }
 
