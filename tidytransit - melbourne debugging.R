@@ -15,18 +15,11 @@
 
 library('tidytransit')
 library('dplyr')
-# library('tidyverse')
 library('hablar')
 library('sf')
-# library('ggplot2')
 
 gtfs_feeds <- list.files(recursive=TRUE, pattern="*.zip")
-# gtfs_feeds <- c(
-#   'gtfs/custom_gtfs_vic_ptv/gtfs_au_vic_ptv_20191004.zip'
-# )
-
-# gpkg_out <- 'D:/ntnl_li_2018_template/data/destinations/gtfs_au_ntnl_20191008_20191205/2020-01-07_tidy_transit_headway.gpkg'
-gpkg_out <- '2020-01-09_tidy_transit_headway.gpkg'
+gpkg_out <- paste0(Sys.Date(),'_tidy_transit_headway.gpkg')
 
 all_stops <- NULL
 frequent_stops <- NULL
@@ -39,7 +32,11 @@ for (feed in gtfs_feeds) {
   stub = strsplit(basename(feed),".",fixed=TRUE)[[1]][1]
   fileInfo = strsplit(stub,"_")[[1]]
   currentState = fileInfo[3]
-  authority = fileInfo[4]
+  # note that 'authority' does not uniquely identify feed, 
+  # e.g. translink in QLD has additional argument specifiers,
+  # these potential additional identifiers are retrieved and 
+  # concatenated for the record using the below code
+  authority = paste(fileInfo[4:(length(fileInfo)-1)],collapse="_")
   publicationDate = as.numeric(fileInfo[length(fileInfo)])
 
   valid_days <- c('Monday','Tuesday','Wednesday','Thursday','Friday')
@@ -131,25 +128,5 @@ for (feed in gtfs_feeds) {
   }  
 }
 
-
-
-# To restrict to valid days
-
-
-
-
-
-# all_stops2 <- all_stops %>%
-#   as.data.frame() %>%
-#   st_sf()
-
 st_write(all_stops, dsn=gpkg_out, layer="all_stops",  layer_options = "OVERWRITE=YES" )
 st_write(frequent_stops, dsn=gpkg_out, layer="frequent_stops",  layer_options = "OVERWRITE=YES" )
-
-
-# summarise(avg_frequency = sum(tmp)/sum(wgt))
-
-# Also note that the choice to select the minimum headway of the services is naive,
-# More appropriate is
-# 1. filter out weekend service IDs
-# 2. Multiply calendar matrix by 
