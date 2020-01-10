@@ -215,14 +215,14 @@ for (feed in gtfs_feeds) {
     # identify frequent stops
     all_stops_current <- stops_sf %>% 
       right_join(daytime_freq, by="stop_id") %>% 
-      select(c(stop_id,mode,state,authority,publication_date,frequency,geometry))
-    frequent_stops_current <- all_stops_current %>% filter(frequency <= 30)
+      select(c(stop_id,mode,state,authority,publication_date,headway,geometry))
+    frequent_stops_current <- all_stops_current %>% filter(headway <= 30)
     all_stops <- rbind(all_stops, all_stops_current)
     frequent_stops <- rbind(frequent_stops, frequent_stops_current)
     print(paste0(currentState," (",authority,") ",transitMode," complete in ", (Sys.time()-startTime), " seconds"))
   }  
 }
 
-st_write(all_stops, dsn=gpkg_out, layer="all_stops",  layer_options = "OVERWRITE=YES" )
-st_write(frequent_stops, dsn=gpkg_out, layer="frequent_stops",  layer_options = "OVERWRITE=YES" )
+st_write(all_stops_current, dsn=gpkg_out, layer="all_stops_nsw_bus_test2",  layer_options = "OVERWRITE=YES" )
+st_write(frequent_stops_current, dsn=gpkg_out, layer="frequent_stops_nsw_bus_test2",  layer_options = "OVERWRITE=YES" )
 
