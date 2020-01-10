@@ -78,8 +78,7 @@ for (feed in gtfs_feeds) {
   
   mode_services <- gtfs$trips %>%
     left_join(gtfs$routes, by='route_id') %>% 
-    filter(service_id%in%valid_service_ids) %>%
-    mutate(agency_id=as.numeric(agency_id))
+    filter(service_id%in%valid_service_ids) 
   
   
   # some feeds need filtering on just route type, some need filtering on route type and agency id (e.g., Vic)
@@ -93,6 +92,7 @@ for (feed in gtfs_feeds) {
              unique(),
            
            mode_services2 <- mode_services %>%
+             mutate(agency_id=as.numeric(agency_id)) %>%
              filter(agency_id %in% (modesCurrent%>%filter(mode==transitMode)%>%pull(agencyId))[[1]] &
                       route_type %in% (modesCurrent%>%filter(mode==transitMode)%>%pull(routeTypes))[[1]] ) %>%
              pull(service_id) %>%
