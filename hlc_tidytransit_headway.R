@@ -40,9 +40,8 @@ modes <- tribble(
 
 
 # Modifying tidy transit functions from
-# https://github.com/r-transit/tidytransit/blob/master/R/frequencies.R
 
-# Unchanged
+# Unchanged from https://github.com/r-transit/tidytransit/blob/master/R/service.R
 #' Filter a gtfs calendar dataframe to service ids for specific days of the week.
 #' 
 #' @param gtfs_object object made by join_all_gtfs_tables
@@ -62,7 +61,7 @@ service_by_dow <- function(calendar,
   return(calendar$service_id)
 }
 
-# Unchanged
+# Unchanged from https://github.com/r-transit/tidytransit/blob/master/R/time.R
 #' Filter stop times by hour of the day
 #' 
 #' @param stop_times a gtfs_obj$stop_times dataframe with arrival_time and departure_time 
@@ -80,7 +79,7 @@ filter_stop_times_by_hour <- function(stop_times,
                           departure_time_hms < hms::hms(hours = end_hour))
 }
 
-# Modified
+# Modified from # https://github.com/r-transit/tidytransit/blob/master/R/frequencies.R
 get_hlc_stop_frequency <- function(gtfs_obj,
                                    start_hour=7,
                                    end_hour=19,
