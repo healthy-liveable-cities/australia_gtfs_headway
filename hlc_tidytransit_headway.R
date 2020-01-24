@@ -87,31 +87,59 @@ for (gtfs_year in c('2018','2019')) {
   }
   
   # Modified from # https://github.com/r-transit/tidytransit/blob/master/R/frequencies.R
-  get_hlc_stop_frequency <- function(gtfs_obj,
+  get_hlc_stop_frequency <- function(gtfs,
                                      start_hour=7,
                                      end_hour=19,
                                      start_date = analysis_start,
                                      end_date = analysis_end,
                                      dow =  c('Monday','Tuesday','Wednesday','Thursday','Friday'),
-                                     service_ids=c()
+                                     service_ids=c(),
+                                     route_types = c(),
+                                     agency_ids = NA
   ) {
-    gtfs_obj <- set_hms_times(gtfs_obj)
-    trips <- gtfs_obj$trips
-    stop_times <- gtfs_obj$stop_times
+    gtfs_obj <- gtfs %>% set_hms_times()  %>% set_date_service_table()
+    if (is.null(service_ids)){
+      valid_services <- gtfs_obj$.$date_service_table %>% 
+        mutate(dow = weekdays(date)) %>% 
+        filter(dow %in% !!dow) %>%
+        filter(date >= start_date & date <= end_date )
+      valid_dates <- valid_services  %>% select(date) %>% unique()
+      valid_service_ids <- valid_services  %>% pull(service_id)
+      trips <- gtfs$trips %>%
+        left_join(gtfs$routes, by='route_id') %>% 
+        filter(service_id%in%valid_service_ids)
+    } else {
+       valid_services <- gtfs_obj$.$date_service_table %>% 
+          mutate(dow = weekdays(date)) %>% 
+          filter(dow %in% !!dow) %>%
+          filter(date >= start_date & date <= end_date )  %>% 
+          filter(service_id %in% service_ids)
+        trips <- gtfs$trips %>%
+          left_join(gtfs$routes, by='route_id') %>% 
+          filter(service_id%in%service_ids)
+    }
+    if (!is.na(route_types)&&is.na(agency_ids)){
+        trips <- trips%>%filter(route_type%in%route_types)
+        valid_services <- valid_services %>% filter(service_id %in% (trips%>%pull(service_id)%>%unique()) )
+    } else if (!is.na(route_types)&&!is.na(agency_ids)) {
+        trips <- trips%>%
+          mutate(agency_id=as.numeric(agency_id)) %>%
+          filter((agency_id %in% agency_ids) & (route_type %in% route_types))
+          valid_services <- valid_services %>% filter(service_id %in% (trips%>%pull(service_id)%>%unique()) )
+    } else if (is.na(route_types)&&!is.na(agency_ids)) {
+      trips <- trips%>%
+        mutate(agency_id=as.numeric(agency_id)) %>%
+        filter(agency_id %in% agency_ids)
+      valid_services <- valid_services %>% filter(service_id %in% (trips%>%pull(service_id)%>%unique()) )
+    } 
+    
+    stop_times <- gtfs_obj$stop_times %>% filter(trip_id %in% (trips%>%pull(trip_id)))
     stop_times <- filter_stop_times_by_hour(stop_times,
                                             start_hour,
                                             end_hour)
     # custom HLC code to allow for consideration of date range
-    gtfs_days <- dow
-    gtfs_services <- gtfs$.$date_service_table %>% 
-      mutate(dow = weekdays(date)) %>% 
-      filter(dow %in% gtfs_days) %>%
-      filter(date >= start_date & date <= end_date )  %>% 
-      filter(service_id %in% service_ids)
-    
-    trips <- gtfs_services %>% left_join(gtfs$trips,by="service_id")
+    trips <- valid_services %>% left_join(gtfs$trips,by="service_id")
     trips <- trips %>%
-      dplyr::filter(.data$service_id %in% service_ids) %>%
       count_service_trips()
     stop_time_trips <- dplyr::inner_join(stop_times,
                                          trips,
@@ -144,7 +172,7 @@ for (gtfs_year in c('2018','2019')) {
   }
   
   all_stops <- NULL
-  regular_stops <- NULL
+  # regular_stops <- NULL
   # feed = gtfs_feeds[2]
   for (feed in gtfs_feeds) {
     feed <- paste0(prefix_dir,'/',feed)
@@ -161,54 +189,22 @@ for (gtfs_year in c('2018','2019')) {
     # concatenated for the record using the below code
     authority = paste(fileInfo[4:(length(fileInfo)-1)],collapse="_")
     publicationDate = as.numeric(fileInfo[length(fileInfo)])
-  
-    valid_days <- c('Monday','Tuesday','Wednesday','Thursday','Friday')
-    valid_services <- gtfs$.$date_service_table %>% 
-      mutate(dow = weekdays(date)) %>% 
-      filter(dow %in% valid_days) %>%
-      filter(date >= analysis_start & date <= analysis_end )
-    
-    valid_service_ids <- valid_services  %>% pull(service_id)
-    valid_dates <- valid_services  %>% select(date) %>% unique()
-    
-    modesCurrent <- modes %>%
-      filter(state==currentState)
+    modesCurrent <- modes %>% filter(state==currentState)
     if(NROW(modesCurrent)==0) { # if there are no rows, then we need to use 'other' as the state
-      modesCurrent <- modes %>%
-        filter(state=="other")
+      modesCurrent <- modes %>% filter(state=="other")
     }
-    
-    mode_services <- gtfs$trips %>%
-      left_join(gtfs$routes, by='route_id') %>% 
-      filter(service_id%in%valid_service_ids) 
-    
-    
-    # some feeds need filtering on just route type, some need filtering on route type and agency id (e.g., Vic)
     for (transitMode in modesCurrent$mode) {
       # transitMode="train"
       startTime=Sys.time()
-      ifelse(any(is.na(modesCurrent$agencyId)), # if any of the agency ids are NA
-             mode_services2 <- mode_services %>%
-               filter(route_type %in% (modesCurrent%>%filter(mode==transitMode)%>%pull(routeTypes))[[1]] ) %>%
-               pull(service_id) %>%
-               unique(),
-             
-             mode_services2 <- mode_services %>%
-               mutate(agency_id=as.numeric(agency_id)) %>%
-               filter(agency_id %in% (modesCurrent%>%filter(mode==transitMode)%>%pull(agencyId))[[1]] &
-                        route_type %in% (modesCurrent%>%filter(mode==transitMode)%>%pull(routeTypes))[[1]] ) %>%
-               pull(service_id) %>%
-               unique()
-      )
-      
-      
       daytime_freq <- get_hlc_stop_frequency(gtfs,
                       start_hour=7,
                       end_hour=19,
                       start_date = analysis_start,
                       end_date = analysis_end,
                       dow =  c('Monday','Tuesday','Wednesday','Thursday','Friday'),
-                      service_ids=mode_services2
+                      service_ids=c(),
+                      route_types = (modesCurrent%>%filter(mode==transitMode)%>%pull(routeTypes))[[1]],
+                      agency_ids = (modesCurrent%>%filter(mode==transitMode)%>%pull(agencyId))[[1]]
       )
       # skip to next mode if there are no records for this mode (e.g. no ferries in Tasmania)
       if (nrow(daytime_freq)==0) next
@@ -223,14 +219,14 @@ for (gtfs_year in c('2018','2019')) {
       all_stops_current <- stops_sf %>% 
         right_join(daytime_freq, by="stop_id") %>% 
         select(c(stop_id,mode,state,authority,publication_date,headway,geometry))
-      regular_stops_current <- all_stops_current %>% filter(headway <= 30)
+      # regular_stops_current <- all_stops_current %>% filter(headway <= 30)
       all_stops <- rbind(all_stops, all_stops_current)
-      regular_stops <- rbind(regular_stops, regular_stops_current)
+      # regular_stops <- rbind(regular_stops, regular_stops_current)
       print(paste0(currentState," (",authority,") ",transitMode," complete in ", (Sys.time()-startTime), " seconds"))
     }  
   }
   
   st_write(all_stops, dsn=gpkg_out, layer="all_stops",  layer_options = "OVERWRITE=YES" )
-  st_write(regular_stops, dsn=gpkg_out, layer="regular_stops",  layer_options = "OVERWRITE=YES" )
+  # st_write(regular_stops, dsn=gpkg_out, layer="regular_stops",  layer_options = "OVERWRITE=YES" )
 }
 
