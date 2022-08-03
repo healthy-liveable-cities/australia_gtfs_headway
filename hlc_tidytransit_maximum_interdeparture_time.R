@@ -1,13 +1,5 @@
 # Carl Higgs, Alan Both 20200106
 #  Following http://tidytransit.r-transit.org/articles/servicepatterns.html
-# in order to de-bug Adelaide metro GTFS analysis (suprising result for Oct 2019)
-# using
-# http://tidytransit.r-transit.org/articles/timetable.html
-# http://tidytransit.r-transit.org/articles/servicepatterns.html
-# https://cran.r-project.org/web/packages/tidytransit/vignettes/frequency.html
-# Carl Higgs 20200106
-#  Following http://tidytransit.r-transit.org/articles/servicepatterns.html
-# in order to de-bug Adelaide metro GTFS analysis (suprising result for Oct 2019)
 # using
 # http://tidytransit.r-transit.org/articles/timetable.html
 # http://tidytransit.r-transit.org/articles/servicepatterns.html
